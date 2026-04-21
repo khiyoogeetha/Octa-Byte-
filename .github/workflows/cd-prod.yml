@@ -1,0 +1,72 @@
+name: Continuous Deployment (Production)
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Docker image tag (e.g., git SHA) to deploy to Production'
+        required: true
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: devops-assignment-staging-repo # Assuming single ECR for both environments 
+  ECS_SERVICE: devops-assignment-prod-service
+  ECS_CLUSTER: devops-assignment-prod-cluster
+  CONTAINER_NAME: app
+
+jobs:
+  deploy:
+    name: Promote to Production ECS
+    runs-on: ubuntu-latest
+    
+    # GitHub Environments can enforce manual approvals before this job runs
+    environment: 
+      name: production
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        
+      - name: Download Production task definition
+        run: |
+          aws ecs describe-task-definition --task-definition devops-assignment-prod-task --query taskDefinition > task-def.json
+
+      - name: Inject image ID into task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-def.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ inputs.image_tag }}
+
+      - name: Deploy Production ECS Set
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+          
+      - name: Email Notification
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "GitHub Actions: Production Deployment ${{ job.status }}"
+          to: ${{ secrets.MAIL_TO }}
+          from: "GitHub Actions <actions@github.com>"
+          body: "The production deployment finished with status: ${{ job.status }}. Please check the GitHub Actions logs."

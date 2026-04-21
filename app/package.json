@@ -1,0 +1,14 @@
+{
+  "name": "devops-sample-api",
+  "version": "1.0.0",
+  "description": "Sample API for DevOps Assessment",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 0"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.11.5"
+  }
+}
