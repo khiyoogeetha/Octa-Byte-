@@ -1,53 +1,76 @@
-<div align="center"><img src="https://raw.githubusercontent.com/pallets/flask/refs/heads/stable/docs/_static/flask-name.svg" alt="" height="150"></div>
+# Octa Byte DevOps Assignment
 
-# Flask
+Welcome to my submission for the DevOps assignment. This repo contains a fully containerized Flask application backed by PostgreSQL, with infrastructure provisioned via Terraform and CI/CD handled through GitHub Actions.
 
-Flask is a lightweight [WSGI] web application framework. It is designed
-to make getting started quick and easy, with the ability to scale up to
-complex applications. It began as a simple wrapper around [Werkzeug]
-and [Jinja], and has become one of the most popular Python web
-application frameworks.
+## Setting Up and Running the Infrastructure
 
-Flask offers suggestions, but doesn't enforce any dependencies or
-project layout. It is up to the developer to choose the tools and
-libraries they want to use. There are many extensions provided by the
-community that make adding new functionality easy.
+To deploy this environment yourself, you'll need AWS credentials and Terraform installed locally.
 
-[WSGI]: https://wsgi.readthedocs.io/
-[Werkzeug]: https://werkzeug.palletsprojects.com/
-[Jinja]: https://jinja.palletsprojects.com/
+1. **Clone the Repo:**
+   ```bash
+   git clone <repo-url>
+   cd project1_flaskrapp
+   ```
 
-## A Simple Example
+2. **Configure AWS Credentials:**
+   Ensure you have configured your AWS CLI or set the environment variables `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
 
-```python
-# save this as app.py
-from flask import Flask
+3. **Provision the Terraform Backend:**
+   Before applying the main infrastructure, you need to create the S3 bucket used to store the Terraform state. We use Terraform's native S3 state locking so a DynamoDB table is no longer required.
+   ```bash
+   cd terraform/bootstrap
+   terraform init
+   terraform apply -auto-approve
+   cd ../..
+   ```
 
-app = Flask(__name__)
+4. **Initialize Main Terraform:**
+   ```bash
+   cd terraform
+   terraform init
+   ```
 
-@app.route("/")
-def hello():
-    return "Hello, World!"
-```
+5. **Apply Infrastructure by Environment:**
+   This project is set up to deploy separate environments (`dev`, `staging`, `prod`). Use the `-var-file` flag to deploy a specific stack.
+   ```bash
+   # Deploy Staging
+   terraform apply -var-file="environments/staging.tfvars" -var="db_password=YourSecurePassword123!"
 
-```
-$ flask run
-  * Running on http://127.0.0.1:5000/ (Press CTRL+C to quit)
-```
+   # Deploy Production
+   terraform apply -var-file="environments/prod.tfvars" -var="db_password=YourProdPassword123!"
+   ```
+   Review the plan and type `yes`. Terraform will output the Application Load Balancer DNS name once it finishes.
 
-## Donate
+## CI/CD Pipeline & Environments
 
-The Pallets organization develops and supports Flask and the libraries
-it uses. In order to grow the community of contributors and users, and
-allow the maintainers to devote more time to the projects, [please
-donate today].
+The deployment is managed by GitHub Actions (`.github/workflows/deploy.yml`):
+1. **Build & Push**: Builds the Docker image, scans it with Trivy, and pushes it to an ECR repository.
+2. **Deploy to Staging**: Automatically updates the `staging` ECS cluster.
+3. **Deploy to Production (Manual Approval)**: Triggers only after staging completes. This uses GitHub Actions **Environments**. 
 
-[please donate today]: https://palletsprojects.com/donate
+**Important:** To test the manual approval gate, you must go to your GitHub Repository Settings > Environments. Create a new environment named `production`, check the "Required reviewers" box, and add yourself.
 
-## Contributing
+## Architecture Decisions & Challenges
+I've split out the detailed architectural rationale and the issues I ran into while building this out into separate files to keep this readme clean:
+- [Read the Architectural Approach](APPROACH.md)
+- [Read the Challenges & Resolutions](CHALLENGES.md)
 
-See our [detailed contributing documentation][contrib] for many ways to
-contribute, including reporting issues, requesting features, asking or answering
-questions, and making PRs.
+## Security Considerations
 
-[contrib]: https://palletsprojects.com/contributing/
+Security was a primary focus when designing this stack:
+- **Private Subnets:** The RDS instance and the ECS Fargate tasks sit in private subnets. They cannot be reached directly from the internet.
+- **Strict Security Groups:** The ALB is the only component open to `0.0.0.0/0` on port 80. The ECS tasks only accept traffic from the ALB security group, and the RDS instance only accepts traffic from the ECS security group on port 5432.
+- **Secret Management (12-Factor App):** The application does not store secrets in the codebase. Database credentials and the Flask `SECRET_KEY` are passed via environment variables managed by Terraform and injected directly into the ECS Task Definition.
+
+## Cost Optimization Measures
+
+Running cloud infrastructure can get expensive fast, so I've optimized a few things:
+- **Free-tier Eligible Database:** I opted for a `db.t3.micro` instance class for the RDS database.
+- **Single NAT Gateway:** To allow ECS tasks in the private subnet to pull images from ECR, a NAT Gateway is required. Instead of deploying one per Availability Zone (which is best practice for production but costly), I deployed a single NAT gateway to save on hourly charges.
+- **Fargate Right-Sizing:** The ECS tasks are allocated minimal CPU (256) and Memory (512) since it's just a lightweight Python web service.
+
+## Backup Strategy
+
+The RDS module is configured to automatically handle database backups. 
+- **Automated Snapshots:** AWS takes daily automated snapshots during a specified backup window (`03:00-04:00` UTC).
+- **Retention:** Backups are retained for 7 days, allowing for easy point-in-time recovery if someone accidentally drops a table or messes up the data.

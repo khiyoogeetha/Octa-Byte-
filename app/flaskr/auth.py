@@ -40,7 +40,7 @@ def load_logged_in_user():
     else:
         db = get_db()
         with db.cursor() as cursor:
-            cursor.execute("SELECT * FROM user WHERE id = %s", (user_id,))
+            cursor.execute('SELECT * FROM "user" WHERE id = %s', (user_id,))
             g.user = cursor.fetchone()
 
 
@@ -66,7 +66,7 @@ def register():
             try:
                 with db.cursor() as cursor:
                     cursor.execute(
-                        "INSERT INTO user (username, password) VALUES (%s, %s)",
+                        'INSERT INTO "user" (username, password) VALUES (%s, %s)',
                         (username, generate_password_hash(password)),
                     )
                 db.commit()
@@ -92,7 +92,7 @@ def login():
         db = get_db()
         error = None
         with db.cursor() as cursor:
-            cursor.execute("SELECT * FROM user WHERE username = %s", (username,))
+            cursor.execute('SELECT * FROM "user" WHERE username = %s', (username,))
             user = cursor.fetchone()
 
         if user is None:

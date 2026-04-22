@@ -1,6 +1,7 @@
+import os
 import click
-import pymysql
-import pymysql.cursors
+import psycopg2
+import psycopg2.extras
 from flask import current_app
 from flask import g
 
@@ -8,13 +9,13 @@ from flask import g
 def get_db():
     """Connect to the application's configured database."""
     if "db" not in g:
-        g.db = pymysql.connect(
-            host=current_app.config.get("MYSQL_HOST", "localhost"),
-            user=current_app.config.get("MYSQL_USER", "root"),
-            password=current_app.config.get("MYSQL_PASSWORD", ""),
-            database=current_app.config.get("MYSQL_DB", "flaskapp"),
-            cursorclass=pymysql.cursors.DictCursor,
-            autocommit=False
+        g.db = psycopg2.connect(
+            host=os.environ.get("DB_HOST", "localhost"),
+            user=os.environ.get("DB_USER", "postgres"),
+            password=os.environ.get("DB_PASSWORD", "postgres"),
+            dbname=os.environ.get("DB_NAME", "flaskapp"),
+            port=os.environ.get("DB_PORT", "5432"),
+            cursor_factory=psycopg2.extras.DictCursor
         )
 
     return g.db
@@ -53,4 +54,4 @@ def init_app(app):
     app.teardown_appcontext(close_db)
     app.cli.add_command(init_db_command)
 
-IntegrityError = pymysql.err.IntegrityError
+IntegrityError = psycopg2.IntegrityError

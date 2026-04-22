@@ -19,9 +19,9 @@ def index():
     db = get_db()
     with db.cursor() as cursor:
         cursor.execute(
-            "SELECT p.id, title, body, created, author_id, username"
-            " FROM post p JOIN user u ON p.author_id = u.id"
-            " ORDER BY created DESC"
+            'SELECT p.id, title, body, created, author_id, username'
+            ' FROM post p JOIN "user" u ON p.author_id = u.id'
+            ' ORDER BY created DESC'
         )
         posts = cursor.fetchall()
     return render_template("blog/index.html", posts=posts)
@@ -42,9 +42,9 @@ def get_post(id, check_author=True):
     db = get_db()
     with db.cursor() as cursor:
         cursor.execute(
-            "SELECT p.id, title, body, created, author_id, username"
-            " FROM post p JOIN user u ON p.author_id = u.id"
-            " WHERE p.id = %s",
+            'SELECT p.id, title, body, created, author_id, username'
+            ' FROM post p JOIN "user" u ON p.author_id = u.id'
+            ' WHERE p.id = %s',
             (id,),
         )
         post = cursor.fetchone()

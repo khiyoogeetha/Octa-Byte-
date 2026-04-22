@@ -8,7 +8,7 @@ maintainers = [{name = "Pallets", email = "contact@palletsprojects.com"}]
 classifiers = ["Private :: Do Not Upload"]
 dependencies = [
     "flask",
-    "PyMySQL[rsa]",
+    "psycopg2-binary",
 ]
 
 [project.urls]
