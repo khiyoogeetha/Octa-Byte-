@@ -1,7 +1,7 @@
 {
   "name": "devops-sample-api",
   "version": "1.0.0",
-  "description": "Sample API for DevOps Assessment",
+  "description": "Sample API for Devops Assessment",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
