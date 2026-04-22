@@ -1,5 +1,5 @@
 {
-  "name": "devops_sample_api",
+  "name": "devops-sample-api",
   "version": "1.0.0",
   "description": "Sample API for DevOps Assessment",
   "main": "index.js",
